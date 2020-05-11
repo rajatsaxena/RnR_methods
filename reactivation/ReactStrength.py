@@ -5,6 +5,9 @@ Created on Tue Apr 14 13:21:00 2020
 
 @author: rajat
 
+TODO: needs extensive testing of FASTICA algorithm
+any other better way for removing diagonal elements contribution
+
 Credit goes to David Tingley and Adrien Peyrache: 
     https://github.com/DavidTingley/RnR_methods
 """
@@ -50,7 +53,7 @@ def ReactStrength(Qref, Qtar, method='pca'):
     
     return R, phi
 
-
+"""
 Qref = np.load('Qrun.npy', allow_pickle=True)
 Qtar = np.load('Qsleep.npy', allow_pickle=True)
 Qref = np.delete(Qref, (80,83), axis=0)
@@ -62,3 +65,4 @@ R2, _ = ReactStrength(Qref, Qtar, method='ica')
 
 plt.plot(R1[:,0])
 plt.plot(R2[:,0])
+"""
