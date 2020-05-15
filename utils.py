@@ -5,6 +5,7 @@ Created on Tue May 12 13:33:20 2020
 @author: Rajat
 """
 import sys
+import pandas as pd
 import numpy as np
 import scipy as sp
 import matplotlib.pyplot as plt
@@ -124,26 +125,36 @@ order to rearrange both
 """
 def sort_cells(item,item2=None,num=1):
     if item2 is None:
-        item2 = np.copy(item)
-     
+        item2 = np.copy(item)  
     new_item = np.zeros((item.shape[0], item.shape[1]))
-    new_item2 = np.zeros((item2.shape[0], item2.shape[1]))
-    
+    new_item2 = np.zeros((item2.shape[0], item2.shape[1]))    
     if num==1:
         d = np.argmax(item, axis=1)
         ddd = np.argsort(d)
         new_item = item[ddd,:]
         new_item2 = item2[ddd,:] 
-        order = ddd
-        
+        order = ddd        
     if num==2:
         d = np.argmin(item, axis=1)
         ddd = np.argsort(d)
         new_item = item[ddd,:]
         new_item2 = item2[ddd,:] 
-        order = ddd
-        
+        order = ddd        
     return new_item, new_item2, order
+
+"""
+sorts the rows of a matrix in ascending/descending order based on the elements 
+in the first column. When the first column contains repeated elements, 
+sortrows sorts according to the values in the next column and repeats this 
+behavior for succeeding equal values.
+"""
+def sort_rows(mat, order='descending'):
+    df = pd.DataFrame(mat)
+    if order=='descending':
+        df.sort_values(list(np.arange(len(df.columns))), ascending=False,inplace=True)
+    else:
+        df.sort_values(list(np.arange(len(df.columns))), ascending=True,inplace=True)
+    return np.array(df), np.array(df.index)
 
 """
 circularly shift each row
@@ -155,3 +166,35 @@ def shuffleCircular(data):
         shift_ = shift_[0]
         data1[i,:] = np.roll(data1[i,:], shift_)
     return data1
+
+"""
+shuffle individual cell
+"""
+def shuffleCellID(data):
+    data1 = np.copy(data)
+    data1 = data1[np.random.permutation(data1.shape[0]),:]
+    return data1
+
+"""
+function that 'pulls out' a start and stop time around each
+ripple/population event.
+"""
+def processReplayData(Q, Qt, ripple, binsize=0.01, thresh=3):
+    ripst = ripple[0]
+    ripet = ripple[-1]
+    start = int(np.where(Qt>=ripst)[0][0] - int(0.05*binsize))
+    stop = int(np.where(Qt<=ripet)[0][-1] + int(0.05*binsize))
+    # data and counts    
+    data = Q[:,start:stop]
+    counts = Q[:,start:stop]
+    # cut 0 and 1 spk count bins from the start/end
+    while np.sum(counts[:,0])<thresh and counts.shape[0]>1:
+        data = data[:,1:]
+        counts = counts[:,1:]
+        start = start + 1  
+    while np.sum(counts[:,-1])<thresh and counts.shape[0]>1:
+        data = data[:,:-1]
+        counts = counts[:,:-1]
+        stop = stop-1
+    data = data/binsize
+    return data, counts

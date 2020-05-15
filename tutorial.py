@@ -39,12 +39,18 @@ orip1 = [np.concatenate((np.ceil(numCells/2. - np.logspace(2,0.8,50)/2+3),np.cei
 orip2 = [np.arange(100)]
 offsets_rip = np.concatenate((orip1, orip2),0)
 
-# generate ripple event          
-rippleEvent = np.zeros((len(offsets_rip),numCells,numBins))
+# variables to hold different quality metrics
 integral = np.zeros((len(offsets_rip),len(offsets_rate), numIterations))
+integral_cellId_shuf = np.zeros((len(offsets_rip),len(offsets_rate), numIterations))
 rankOrder = np.zeros((len(offsets_rip), len(offsets_rate)))
+rankOrderFirstSpk = np.zeros((len(offsets_rip), len(offsets_rate)))
 integral_shuffle = np.zeros((len(offsets_rip), len(offsets_rate), numIterations))
 rankOrder_shuf = np.zeros((len(offsets_rip), len(offsets_rate), numIterations))
+rankOrderFirstSpk_shuf = np.zeros((len(offsets_rip), len(offsets_rate), numIterations))
+rankOrder_cellId_shuf = np.zeros((len(offsets_rip), len(offsets_rate), numIterations))
+rankOrderFirstSpk_cellId_shuf = np.zeros((len(offsets_rip), len(offsets_rate), numIterations))
+# generate ripple event          
+rippleEvent = np.zeros((len(offsets_rip),numCells,numBins))
 # get stats for each ripple event while generating it
 for o in range(len(offsets_rip)):
     for oo in range(len(offsets_rate)):
@@ -64,19 +70,36 @@ for o in range(len(offsets_rip)):
             Pr, prMax = utils.placeBayes(rip.T, rateMaps[oo], 1)
             slope, integral[o,oo][iteration] = utils.Pr2Radon(Pr.T)
             
+            # linear weighted correlation
+            
             # rank-order correlations
             #  only calculate once for the actual data
             if iteration == 0:
                 _, _, ord1 = utils.sort_cells(rateMaps[oo])
                 _, _, ord2 = utils.sort_cells(rippleEvent[o])
+                _, ord_firstSpk = utils.sort_rows(rippleEvent[o],order='descending')
                 rankOrder[o,oo], _ = scst.spearmanr(ord1,ord2)
-                
+                rankOrderFirstSpk[o,oo], _ = scst.spearmanr(ord1,ord_firstSpk)
+            
+            # shuffle cellID
+            shuf = utils.shuffleCellID(rateMaps[oo]) 
+            [Pr, prMax] = utils.placeBayes(rip.T, shuf, 1); 
+            Pr[np.isnan(Pr)] = 0
+            #[bayesLinearWeighted_cellID_shuf(event),outID] = makeBayesWeightedCorr1(Pr,ones(size(Pr,1),1));
+            _, integral_cellId_shuf[o,oo][iteration] = utils.Pr2Radon(Pr.T)
+            _, _, ord_shuf = utils.sort_cells(shuf)
+            _, ord_firstSpkshuf = utils.sort_rows(shuf)
+            rankOrder_cellId_shuf[o,oo][iteration], _ = scst.spearmanr(ord_shuf,ord2)
+            rankOrderFirstSpk_cellId_shuf[o,oo][iteration], _ = scst.spearmanr(ord_firstSpkshuf,ord2)
+        
+            # shuffle circular
             shuf = utils.shuffleCircular(rateMaps[oo])
             Pr, _ = utils.placeBayes(rip.T,shuf,1)
             _, integral_shuffle[o,oo][iteration] = utils.Pr2Radon(Pr.T) 
             _, _, ord_shuf = utils.sort_cells(shuf)
+            _, ord_firstSpkshuf = utils.sort_rows(shuf)
             rankOrder_shuf[o,oo][iteration], _ = scst.spearmanr(ord_shuf,ord2)
-            
+            rankOrderFirstSpk_shuf[o,oo][iteration], _ = scst.spearmanr(ord_firstSpkshuf,ord2)
 
 # Plotting results
 conditions = len(offsets_rate)*len(offsets_rip)
@@ -87,24 +110,30 @@ for o in range(len(offsets_rip)):
         plt.imshow(rateMaps[oo])
         plt.xlabel('position')
         plt.ylabel('neuron #')
+        if cond==1: plt.title('Behavior template')
         
         plt.subplot(conditions,4,cond*4-2)
         plt.imshow(rippleEvent[o])
-        plt.title('ripple template')
+        if cond==1: plt.title('ripple template')
         plt.xlabel('time bin')
         
         plt.subplot(conditions,4,cond*4-1)
-        plt.hist(integral[o,oo],np.arange(0,0.05,0.001), alpha=0.5)
-        plt.hist(integral_shuffle[o,oo],np.arange(0,0.05,0.001), alpha=0.5)    
-        plt.title('radon integral')
+        plt.hist(integral[o,oo],np.arange(0,0.05,0.001), alpha=0.75)
+        plt.hist(integral_shuffle[o,oo],np.arange(0,0.05,0.001), alpha=0.75)   
+        plt.hist(integral_cellId_shuf[o,oo],np.arange(0,0.05,0.001), alpha=0.75)   
+        if cond==1: plt.title('radon integral')
         plt.xlim([0,0.03])
         
         plt.subplot(conditions,4,cond*4)
         plt.plot([rankOrder[o,oo], rankOrder[o,oo]],[0,50],'r')
-        plt.hist(rankOrder_shuf[o,oo])
-        plt.title('rank order correlation')
+        plt.plot([rankOrderFirstSpk[o,oo], rankOrderFirstSpk[o,oo]],[0,50],'m')
+        plt.hist(rankOrder_shuf[o,oo], alpha=0.75)
+        plt.hist(rankOrder_cellId_shuf[o,oo], alpha=0.75)
+        plt.hist(rankOrderFirstSpk_shuf[o,oo], alpha=0.75)
+        plt.hist(rankOrderFirstSpk_cellId_shuf[o,oo], alpha=0.75)
+        if cond==1: plt.title('rank order correlation')
         plt.xlim([-1,1])
         
         cond = 1+cond
-plt.tight_layout()
+# plt.tight_layout()
 plt.show()
