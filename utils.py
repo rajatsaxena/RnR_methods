@@ -48,7 +48,7 @@ def placeBayes(Cr, rateMap, binLength):
     prMax = m.T
     
     if np.sum(np.isinf(Pr))>0:
-        sys.error('Do Not Approach the Infitnite')
+        sys.error('Do Not Approach the Infinite')
     return Pr, prMax
 
 def fPolyFit(x,y,n):
@@ -65,55 +65,56 @@ def fPolyFit(x,y,n):
 computes max projection line, using radon transform, on Pr matrix
 """
 def Pr2Radon(Pr, plotting=0):
-    Pr[np.isnan(Pr)] = 0
-    theta = np.arange(0,180+0.5,0.5)
-    R = radon(Pr,theta,circle=False)
-    bw_ = R.shape[0]//2
-    xp = np.linspace(-bw_,bw_,R.shape[0])
-    
-    y=[None, None]
-    x=[None, None]
-    y[0] = np.floor((Pr.shape[0])//2.)
-    x[0] = np.floor((Pr.shape[1])//2.)
-    
-    I = np.nanargmax(R,0)
-    Y = R[I]
-    
-    locs = np.arange(len(Y))
-    slope = np.zeros(len(locs))
-    integral = np.zeros(len(locs))
-    curve = np.zeros(Pr.shape[1])
-    for pk in range(len(locs)):
-        angle = theta[locs[pk]]
-        offset = xp[I[locs[pk]]]
-        if offset==0:
-            offset=0.01
-
-        y[1] = y[0] + offset*np.sin(np.deg2rad(-angle))
-        x[1] = x[0] + offset*np.cos(np.deg2rad(-angle))
-        coeffs = fPolyFit(x, y, 1)
-        xx = np.arange(Pr.shape[1])
-        yy = (-1/coeffs[0])*(xx - x[0]) + y[0] - offset
-        coeffs = fPolyFit(xx, yy, 1)
-        slope[pk] = coeffs[0]
+    try:
+        Pr[np.isnan(Pr)] = 0
+        theta = np.arange(0,180+0.5,0.5)
+        R = radon(Pr,theta,circle=False)
+        bw_ = R.shape[0]//2
+        xp = np.linspace(-bw_,bw_,R.shape[0])
         
-        # rise/run limit to calc integral (must be in the frame)
-        if abs(slope[pk]) < 2*Pr.shape[0]/Pr.shape[1] and abs(slope[pk]) > 1.5:
-            for i in range(len(xx)):
-                if yy[i] > .5 and yy[i] < Pr.shape[0] - .5:                    
-                    curve[i] = Pr[int(yy[i]),int(xx[i])]
-                else:
-                    curve[i] = np.nan
-            integral[pk] = np.nanmean(curve)
-        else:
-            integral[pk] = np.nan
-            slope[pk] = np.nan
+        y=[None, None]
+        x=[None, None]
+        y[0] = np.ceil((Pr.shape[0])//2.)+1
+        x[0] = np.ceil((Pr.shape[1])//2.)+1
+        
+        I = np.nanargmax(R,0)
+        Y = R[I]
+        locs = np.arange(len(Y))
+        slope = np.zeros(len(locs))
+        integral = np.zeros(len(locs))
+        curve = np.zeros(Pr.shape[1])
+        for pk in range(len(locs)):
+            angle = theta[locs[pk]]
+            offset = xp[I[locs[pk]]]
+            if offset==0:
+                offset=0.01
     
-    # weird typecasting fix
-    integral = np.array(integral, dtype='float64')
-    idx = np.nanargmax(integral)
-    integral = integral[idx]
-    slope = slope[idx]    
+            y[1] = y[0] + offset*np.sin(np.deg2rad(-angle))
+            x[1] = x[0] + offset*np.cos(np.deg2rad(-angle))
+            coeffs = fPolyFit(x, y, 1)
+            xx = np.arange(1,Pr.shape[1]+1)
+            yy = (-1/coeffs[0])*(xx - x[0]) + y[0] - offset
+            coeffs = fPolyFit(xx, yy, 1)
+            slope[pk] = coeffs[0]
+            # rise/run limit to calc integral (must be in the frame)
+            if abs(slope[pk]) < 2*Pr.shape[0]/Pr.shape[1] and abs(slope[pk]) > 1.5:
+                for i in range(len(xx)):
+                    if yy[i] > .5 and yy[i] < Pr.shape[0] - .5:                    
+                        curve[i] = Pr[int(yy[i]),int(xx[i])]
+                    else:
+                        curve[i] = np.nan
+                integral[pk] = np.nanmean(curve)
+            else:
+                integral[pk] = np.nan
+                slope[pk] = np.nan
+        
+        # weird typecasting fix
+        integral = np.array(integral, dtype='float64')
+        idx = np.nanargmax(integral)
+        integral = integral[idx]
+        slope = slope[idx]
+    except:
+        return np.nan, np.nan
     
     return slope, integral
 
@@ -182,19 +183,38 @@ ripple/population event.
 def processReplayData(Q, Qt, ripple, binsize=0.01, thresh=3):
     ripst = ripple[0]
     ripet = ripple[-1]
-    start = int(np.where(Qt>=ripst)[0][0] - int(0.05*binsize))
-    stop = int(np.where(Qt<=ripet)[0][-1] + int(0.05*binsize))
+    start = int(np.where(Qt>=ripst)[0][0] - int(0.05/binsize))
+    stop = int(np.where(Qt<=ripet)[0][-1] + int(0.05/binsize))
     # data and counts    
     data = Q[:,start:stop]
     counts = Q[:,start:stop]
     # cut 0 and 1 spk count bins from the start/end
-    while np.sum(counts[:,0])<thresh and counts.shape[0]>1:
+    while counts.size!=0 and counts.shape[0]>1 and np.sum(counts[:,0])<thresh:
         data = data[:,1:]
         counts = counts[:,1:]
-        start = start + 1  
-    while np.sum(counts[:,-1])<thresh and counts.shape[0]>1:
+        start = start + 1 
+    while counts.size!=0and counts.shape[0]>1 and np.sum(counts[:,-1])<thresh:
         data = data[:,:-1]
         counts = counts[:,:-1]
         stop = stop-1
+    if data.size==0 or counts.size==0:
+        return None, None
+    # convert the Q to firing rate
     data = data/binsize
     return data, counts
+
+"""
+mean2d
+"""
+def mean2(x):
+    y = np.sum(x) / np.size(x);
+    return y
+
+"""
+meatlab 2d correlation
+"""
+def corr2(a,b):
+    a = a - mean2(a)
+    b = b - mean2(b)
+    r = (a*b).sum() / np.sqrt((a*a).sum() * (b*b).sum());
+    return r
