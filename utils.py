@@ -211,10 +211,54 @@ def mean2(x):
     return y
 
 """
-meatlab 2d correlation
+matlab 2d correlation
 """
 def corr2(a,b):
     a = a - mean2(a)
     b = b - mean2(b)
     r = (a*b).sum() / np.sqrt((a*a).sum() * (b*b).sum());
     return r
+
+"""
+spearman correlation
+"""
+def corr(a,b):
+    return sp.stats.spearmanr(a,b)
+
+
+"""
+get bayes weighted correlation (Grossmark and Buzsaki 2016)
+"""
+def makeBayesWeightedCorr1(Pr, bID):
+    bID = np.ones(Pr.shape[0])
+    outID = np.unique(bID)
+    
+    h = np.array([Pr.shape[0]]*Pr.shape[0])
+    Q = makeQForWeightedCorr(h, Pr.shape[1])
+    
+    outR = np.zeros(len(outID))
+    for i in range(len(outR)):
+        w = np.reshape(Pr[bID==outID[i],:],-1)
+        xy = Q[h[i]-1]+1
+        outR[i] = makeWeightedCorr1(xy,w)
+    return outR[-1], outID[-1]
+    
+
+def makeQForWeightedCorr(UniqueNumBins, numPlaces):
+    a1 = np.tile(np.array([np.arange(np.max(UniqueNumBins))]).T, numPlaces)
+    b1 = np.tile(np.array([np.arange(numPlaces)]).T, np.max(UniqueNumBins))
+    Q = np.zeros((len(UniqueNumBins), a1.shape[0]*a1.shape[1], 2))
+    for i in range(len(UniqueNumBins)): 
+        x = np.array([np.reshape(a1.T,-1)])
+        y = np.array([np.reshape(b1,-1)])
+        Q[UniqueNumBins[i]-1,:,:] = np.concatenate((x,y)).T
+    Q=np.array(Q)
+    return Q
+
+def makeWeightedCorr1(xy, w):
+    mxy = np.sum(xy*(np.tile(np.array([w]).T,2)/np.sum(w)),0)
+    covxy = np.sum(w*(xy[:,0] - mxy[0])*(xy[:,1] - mxy[1]))/np.sum(w)
+    covxx = np.sum(w*(xy[:,0] - mxy[0])*(xy[:,0] - mxy[0]))/np.sum(w)
+    covyy = np.sum(w*(xy[:,1] - mxy[1])*(xy[:,1] - mxy[1]))/np.sum(w)
+    out = covxy/np.sqrt(covyy*covxx)    
+    return out
