@@ -180,7 +180,7 @@ def shuffleCellID(data):
 function that 'pulls out' a start and stop time around each
 ripple/population event.
 """
-def processReplayData(Q, Qt, ripple, binsize=0.01, thresh=3):
+def processReplayData(Q, Qt, ripple, binsize=0.01, thresh=4):
     ripst = ripple[0]
     ripet = ripple[-1]
     start = int(np.where(Qt>=ripst)[0][0] - int(0.05/binsize))
@@ -222,8 +222,12 @@ def corr2(a,b):
 """
 spearman correlation
 """
-def corr(a,b):
-    return sp.stats.spearmanr(a,b)
+def corr(a,b,stype='pearson'):
+    if stype=='pearson':
+        r = np.corrcoef(a,b)
+        return r[0][1]
+    else:
+        return sp.stats.spearmanr(a,b)
 
 
 """
@@ -238,7 +242,7 @@ def makeBayesWeightedCorr1(Pr, bID):
     
     outR = np.zeros(len(outID))
     for i in range(len(outR)):
-        w = np.reshape(Pr[bID==outID[i],:],-1)
+        w = np.reshape(Pr[bID==outID[i],:].T,-1)
         xy = Q[h[i]-1]+1
         outR[i] = makeWeightedCorr1(xy,w)
     return outR[-1], outID[-1]
@@ -249,8 +253,8 @@ def makeQForWeightedCorr(UniqueNumBins, numPlaces):
     b1 = np.tile(np.array([np.arange(numPlaces)]).T, np.max(UniqueNumBins))
     Q = np.zeros((len(UniqueNumBins), a1.shape[0]*a1.shape[1], 2))
     for i in range(len(UniqueNumBins)): 
-        x = np.array([np.reshape(a1.T,-1)])
-        y = np.array([np.reshape(b1,-1)])
+        x = np.array([np.reshape(a1.T,-1)])+1
+        y = np.array([np.reshape(b1,-1)])+1
         Q[UniqueNumBins[i]-1,:,:] = np.concatenate((x,y)).T
     Q=np.array(Q)
     return Q
